@@ -60,6 +60,14 @@
       font-weight: 700;
     }
 
+    .mobile-badge {
+      background: #10b981;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+    }
+
     .cards-row {
       display: flex;
       flex-wrap: wrap;
@@ -186,6 +194,45 @@
       align-items: baseline;
     }
 
+    .sort-controls-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 24px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2edf7;
+      flex-wrap: wrap;
+    }
+
+    .sort-label {
+      font-size: 0.75rem;
+      color: #5b6e8c;
+      font-weight: 600;
+    }
+
+    .sort-select {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid #dce3ec;
+      background: white;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .sort-order-btn {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid #dce3ec;
+      background: white;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: 0.2s;
+    }
+
+    .sort-order-btn:hover {
+      background: #eef2ff;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -253,6 +300,19 @@
       padding: 0 20px 20px 20px;
     }
 
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 8px;
+      background: #f8fafc;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2c3e66;
+      font-size: 0.8rem;
+    }
+
     .group-item {
       display: flex;
       justify-content: space-between;
@@ -260,16 +320,31 @@
       border-bottom: 1px solid #edf2f0;
       padding: 12px 8px;
       font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .group-item:hover {
+      background: #f8fafc;
     }
 
     .group-name {
       font-weight: 500;
       word-break: break-word;
+      flex: 1;
     }
 
     .group-profit {
       font-weight: 700;
       font-family: monospace;
+      min-width: 120px;
+      text-align: right;
+    }
+
+    .sort-indicator {
+      font-size: 0.7rem;
+      margin-left: 8px;
+      color: #6c7a8e;
     }
 
     .loading-container {
@@ -300,12 +375,6 @@
       border-radius: 28px;
     }
 
-    .sort-controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
     @media (max-width: 780px) {
       body {
         padding: 16px;
@@ -321,6 +390,10 @@
         padding: 10px 6px;
         font-size: 0.7rem;
       }
+      .group-profit {
+        min-width: 90px;
+        font-size: 0.8rem;
+      }
     }
   </style>
 </head>
@@ -333,8 +406,9 @@
       <span class="meta-badge">📅 Date: <strong id="reportDateDisplay">—</strong></span>
       <span class="meta-badge">👤 User: <strong id="userEmailDisplay">—</strong></span>
       <span class="meta-badge">📊 Rows: <strong id="totalRowsDisplay">0</strong></span>
+      <span id="mobileBadge" class="mobile-badge" style="display:none;">📱 Mobile Access</span>
     </div>
-    <div style="font-size: 0.7rem; color:#5f7f9e;">Data from Firebase Firestore | Excel → JSON stored</div>
+    <div style="font-size: 0.7rem; color:#5f7f9e;">Data from Firebase Firestore | Click on any column/row to sort</div>
   </div>
 
   <!-- KPI Cards -->
@@ -383,6 +457,22 @@
 </div>
 
 <script>
+  // 🔐 SECRET KEY (Mobile bypass)
+  const SECRET = btoa("pushpa_admin_secure_2026@!");
+  
+  // Get key from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const key = urlParams.get("key");
+  
+  // Global flag for mobile access
+  window.isMobileAccess = (key === SECRET);
+  
+  // Show mobile badge if accessed via mobile
+  if (window.isMobileAccess) {
+    const mobileBadge = document.getElementById("mobileBadge");
+    if (mobileBadge) mobileBadge.style.display = "inline-block";
+  }
+
   // Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyA52MaRGQ2m1iAX21zbdKMvweEqsPoZL3w",
@@ -425,14 +515,13 @@
   }
 
   let rawData = [];
-  let sortedData = [];
   let currentView = "raw";
   let barChartInstance = null;
   let pieChartInstance = null;
   
-  // Sorting state
-  let sortColumn = null;
-  let sortDirection = 'asc'; // 'asc' or 'desc'
+  // Sorting state for grouped views
+  let groupedSortColumn = 'profit';
+  let groupedSortDirection = 'desc'; // 'asc' or 'desc'
 
   // DOM elements
   const reportIdDisplay = document.getElementById("reportIdDisplay");
@@ -448,10 +537,14 @@
   const barChartTitle = document.getElementById("barChartTitle");
   const pieChartTitle = document.getElementById("pieChartTitle");
 
-  // Sorting function
-  function sortData(column, direction) {
-    sortedData = [...rawData];
-    sortedData.sort((a, b) => {
+  // Sorting state for raw data table
+  let rawSortColumn = null;
+  let rawSortDirection = 'asc';
+
+  // Sort raw data table
+  function sortRawData(column, direction) {
+    const sorted = [...rawData];
+    sorted.sort((a, b) => {
       let valA, valB;
       
       switch(column) {
@@ -491,24 +584,19 @@
           return 0;
       }
       
-      // Handle numeric vs string comparison
       if (typeof valA === 'number' && typeof valB === 'number') {
         return direction === 'asc' ? valA - valB : valB - valA;
       }
       
-      // String comparison
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
-      if (direction === 'asc') {
-        return strA.localeCompare(strB);
-      } else {
-        return strB.localeCompare(strA);
-      }
+      return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
+    return sorted;
   }
 
-  // Grouping functions
-  function groupByProfit(keyGetter) {
+  // Grouping functions with sorting support
+  function groupByProfit(keyGetter, sortBy = 'profit', sortDir = 'desc') {
     const groupMap = new Map();
     for (const row of rawData) {
       let key = keyGetter(row);
@@ -517,11 +605,20 @@
       groupMap.set(key, (groupMap.get(key) || 0) + profit);
     }
     const result = Array.from(groupMap.entries()).map(([key, profit]) => ({ key, profit }));
-    result.sort((a, b) => b.profit - a.profit);
+    
+    // Apply sorting
+    result.sort((a, b) => {
+      if (sortBy === 'profit') {
+        return sortDir === 'desc' ? b.profit - a.profit : a.profit - b.profit;
+      } else if (sortBy === 'name') {
+        return sortDir === 'desc' ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key);
+      }
+      return 0;
+    });
     return result;
   }
 
-  function getTopItemsByProfit() {
+  function getTopItemsByProfit(sortBy = 'profit', sortDir = 'desc') {
     const itemMap = new Map();
     for (const row of rawData) {
       let item = row.ItemName;
@@ -529,8 +626,28 @@
       itemMap.set(item, (itemMap.get(item) || 0) + row.MarginAmount);
     }
     const items = Array.from(itemMap.entries()).map(([name, profit]) => ({ key: name, profit }));
-    items.sort((a, b) => b.profit - a.profit);
+    
+    items.sort((a, b) => {
+      if (sortBy === 'profit') {
+        return sortDir === 'desc' ? b.profit - a.profit : a.profit - b.profit;
+      } else if (sortBy === 'name') {
+        return sortDir === 'desc' ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key);
+      }
+      return 0;
+    });
     return items;
+  }
+
+  function getGroupedDataForCurrentView() {
+    switch(currentView) {
+      case "daily": return groupByProfit(row => row.Trans_Date, groupedSortColumn, groupedSortDirection);
+      case "category": return groupByProfit(row => row.Category, groupedSortColumn, groupedSortDirection);
+      case "vendor": return groupByProfit(row => row.Dealer, groupedSortColumn, groupedSortDirection);
+      case "bill": return groupByProfit(row => row.BillNo, groupedSortColumn, groupedSortDirection);
+      case "salesman": return groupByProfit(row => row.LoginName, groupedSortColumn, groupedSortDirection);
+      case "topItems": return getTopItemsByProfit(groupedSortColumn, groupedSortDirection);
+      default: return groupByProfit(row => row.Category, groupedSortColumn, groupedSortDirection);
+    }
   }
 
   function updateKPI() {
@@ -560,20 +677,8 @@
     }
   }
 
-  function getGroupedDataForCurrentView() {
-    switch (currentView) {
-      case "daily": return groupByProfit(row => row.Trans_Date);
-      case "category": return groupByProfit(row => row.Category);
-      case "vendor": return groupByProfit(row => row.Dealer);
-      case "bill": return groupByProfit(row => row.BillNo);
-      case "salesman": return groupByProfit(row => row.LoginName);
-      case "topItems": return getTopItemsByProfit();
-      default: return groupByProfit(row => row.Category);
-    }
-  }
-
   function getChartTitlePrefix() {
-    switch (currentView) {
+    switch(currentView) {
       case "daily": return "Daily";
       case "category": return "Category";
       case "vendor": return "Vendor";
@@ -662,33 +767,31 @@
     });
   }
 
-  // Render raw data with sorting support
+  // Render raw data with sorting
   function renderRawData() {
     if (!rawData.length) return `<div style="padding: 32px; text-align:center;">No transaction data</div>`;
     
-    // Use sorted data if sort column exists, otherwise use raw data
-    const dataToRender = sortColumn ? sortedData : rawData;
+    const dataToRender = rawSortColumn ? sortRawData(rawSortColumn, rawSortDirection) : rawData;
     
     let html = `<div style="overflow-x: auto;"><table style="min-width: 700px;"><thead><tr>`;
     
-    // Table headers with sort icons
     const columns = [
-      { key: 'date', label: 'Date', sortable: true },
-      { key: 'billNo', label: 'BillNo', sortable: true },
-      { key: 'itemName', label: 'ItemName', sortable: true },
-      { key: 'category', label: 'Category', sortable: true },
-      { key: 'dealer', label: 'Dealer', sortable: true },
-      { key: 'loginName', label: 'LoginName', sortable: true },
-      { key: 'amount', label: 'Amount', sortable: true },
-      { key: 'profit', label: 'Profit', sortable: true }
+      { key: 'date', label: 'Date' },
+      { key: 'billNo', label: 'BillNo' },
+      { key: 'itemName', label: 'ItemName' },
+      { key: 'category', label: 'Category' },
+      { key: 'dealer', label: 'Dealer' },
+      { key: 'loginName', label: 'LoginName' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'profit', label: 'Profit' }
     ];
     
     columns.forEach(col => {
-      const isActive = sortColumn === col.key;
-      const sortClass = isActive ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
-      html += `<th class="${sortClass}" onclick="handleSort('${col.key}')">
+      const isActive = rawSortColumn === col.key;
+      const sortClass = isActive ? (rawSortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+      html += `<th class="${sortClass}" onclick="handleRawSort('${col.key}')">
         ${col.label}
-        <span class="sort-icon">${isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+        <span class="sort-icon">${isActive ? (rawSortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
       </th>`;
     });
     
@@ -711,72 +814,105 @@
     return html;
   }
 
+  // Render grouped list with sorting controls
   function renderGroupedList(groupedArray, title) {
     if (!groupedArray.length) return `<div style="padding: 24px;">✨ No data for ${title}</div>`;
-    let html = `<div class="list-view"><div style="margin-bottom: 12px; font-weight:500;">📊 ${title} (sorted by profit descending)</div>`;
+    
+    const sortIcon = groupedSortDirection === 'asc' ? '↑' : '↓';
+    const profitSortClass = groupedSortColumn === 'profit' ? 'active' : '';
+    const nameSortClass = groupedSortColumn === 'name' ? 'active' : '';
+    
+    let html = `
+      <div class="sort-controls-bar">
+        <span class="sort-label">🔽 Sort by:</span>
+        <button class="sort-order-btn ${profitSortClass}" onclick="handleGroupedSort('profit')">
+          Profit ${groupedSortColumn === 'profit' ? sortIcon : ''}
+        </button>
+        <button class="sort-order-btn ${nameSortClass}" onclick="handleGroupedSort('name')">
+          Name ${groupedSortColumn === 'name' ? sortIcon : ''}
+        </button>
+        <button class="sort-order-btn" onclick="toggleGroupedDirection()">
+          Order: ${groupedSortDirection === 'desc' ? '▼ Descending' : '▲ Ascending'}
+        </button>
+      </div>
+      <div class="list-view">
+        <div class="list-header">
+          <span>${title}</span>
+          <span>Profit (₹)</span>
+        </div>
+    `;
+    
     for (const item of groupedArray) {
       const profitClass = item.profit >= 0 ? "profit-positive" : "profit-negative";
       html += `<div class="group-item">
         <span class="group-name">${escapeHtml(item.key)}</span>
-        <span class="group-profit ${profitClass}">Profit: ${item.profit.toFixed(2)}</span>
+        <span class="group-profit ${profitClass}">${item.profit.toFixed(2)}</span>
       </div>`;
     }
     html += `</div>`;
     return html;
   }
 
-  function updateDashboardUI() {
-    updateKPI();
-    updateDynamicCharts();
-    recordCountSpan.innerText = `${rawData.length} transactions`;
+  // Handle raw data table sorting
+  window.handleRawSort = function(column) {
+    if (rawSortColumn === column) {
+      rawSortDirection = rawSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      rawSortColumn = column;
+      rawSortDirection = 'asc';
+    }
+    updateDashboardUI();
+  };
 
+  // Handle grouped view sorting
+  window.handleGroupedSort = function(column) {
+    if (groupedSortColumn === column) {
+      groupedSortDirection = groupedSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      groupedSortColumn = column;
+      groupedSortDirection = 'desc'; // Default to descending for profit
+    }
+    updateDashboardUI();
+  };
+
+  window.toggleGroupedDirection = function() {
+    groupedSortDirection = groupedSortDirection === 'asc' ? 'desc' : 'asc';
+    updateDashboardUI();
+  };
+
+  function updateDashboardUI() {
     if (!rawData.length) {
       dynamicDiv.innerHTML = `<div style="padding: 40px; text-align: center;">📁 No transaction data found in this report</div>`;
       return;
     }
+    
+    updateKPI();
+    updateDynamicCharts();
+    recordCountSpan.innerText = `${rawData.length} transactions`;
 
     if (currentView === "raw") {
       dynamicDiv.innerHTML = renderRawData();
     } else if (currentView === "daily") {
-      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Trans_Date), "Daily Profit");
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Trans_Date, groupedSortColumn, groupedSortDirection), "Daily Profit");
     } else if (currentView === "category") {
-      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Category), "Profit by Category");
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Category, groupedSortColumn, groupedSortDirection), "Profit by Category");
     } else if (currentView === "vendor") {
-      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Dealer), "Vendor (Dealer) Profit");
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Dealer, groupedSortColumn, groupedSortDirection), "Vendor (Dealer) Profit");
     } else if (currentView === "bill") {
-      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.BillNo), "Profit per Bill Number");
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.BillNo, groupedSortColumn, groupedSortDirection), "Profit per Bill Number");
     } else if (currentView === "salesman") {
-      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.LoginName), "Salesman Performance");
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.LoginName, groupedSortColumn, groupedSortDirection), "Salesman Performance");
     } else if (currentView === "topItems") {
-      dynamicDiv.innerHTML = renderGroupedList(getTopItemsByProfit(), "Top Items by Profit");
+      dynamicDiv.innerHTML = renderGroupedList(getTopItemsByProfit(groupedSortColumn, groupedSortDirection), "Top Items by Profit");
     } else {
       dynamicDiv.innerHTML = renderRawData();
     }
   }
 
-  // Sorting handler (exposed to global scope for onclick)
-  window.handleSort = function(column) {
-    if (sortColumn === column) {
-      // Toggle direction
-      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      // New column, default to ascending
-      sortColumn = column;
-      sortDirection = 'asc';
-    }
-    
-    // Apply sorting
-    sortData(sortColumn, sortDirection);
-    updateDashboardUI();
-  };
-
   // ---------- Firebase: Fetch report by ID from URL ----------
   async function loadReportFromFirebase() {
-    // Get ID from URL - FIXED to work correctly
     const urlParams = new URLSearchParams(window.location.search);
     const reportId = urlParams.get("id");
-    
-    console.log("Report ID from URL:", reportId); // Debug log
 
     if (!reportId) {
       dynamicDiv.innerHTML = `<div class="error-message">❌ No report ID found in URL. Please use ?id=YOUR_REPORT_ID<br><br>Current URL: ${window.location.href}</div>`;
@@ -796,11 +932,9 @@
 
       const reportData = docSnap.data();
       
-      // Display meta info
       reportDateDisplay.innerText = reportData.date || "—";
       userEmailDisplay.innerText = reportData.userEmail || reportData.userId || "—";
       
-      // Get the JSON data from Firestore
       let excelData = reportData.excelDataJSON || reportData.data || [];
       
       if (!Array.isArray(excelData) || excelData.length === 0) {
@@ -808,11 +942,9 @@
         return;
       }
       
-      // Filter out total rows
       const validRows = excelData.filter(row => !isTotalRow(row));
       totalRowsDisplay.innerText = validRows.length;
       
-      // Map to our data format
       rawData = validRows.map(row => ({
         Trans_Type: safeStr(row.Trans_Type),
         BillNo: safeStr(row.BillNo),
@@ -828,12 +960,6 @@
         LoginName: safeStr(row.LoginName)
       }));
       
-      // Reset sorting
-      sortColumn = null;
-      sortDirection = 'asc';
-      sortedData = [...rawData];
-      
-      // Update the dashboard
       updateDashboardUI();
       
     } catch (error) {
