@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f5f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .msg {
+      margin-top: 10px;
+      color: red;
+      font-size: 14px;
+    }
+
+    .debug {
+      margin-top: 10px;
+      font-size: 12px;
+      color: gray;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Login</h2>
+
+  <input id="username" placeholder="Email (admin@gmail.com)">
+  <input id="password" type="password" placeholder="Password">
+
+  <button onclick="login()">Login</button>
+
+  <div class="msg" id="msg"></div>
+  <div class="debug" id="debug"></div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// 🔥 CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyA52MaRGQ2m1iAX21zbdKMvweEqsPoZL3w",
+  authDomain: "pushpa-report.firebaseapp.com",
+  projectId: "pushpa-report",
+  storageBucket: "pushpa-report.firebasestorage.app",
+  messagingSenderId: "209660404105",
+  appId: "1:209660404105:web:74fa46b3f860c3ec508158"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// 🔥 LOGIN FUNCTION
+window.login = async function() {
+  const email = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
+  const debug = document.getElementById("debug");
+
+  msg.innerText = "";
+  debug.innerText = "";
+
+  try {
+    const userCred = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCred.user;
+
+    // 🔍 DEBUG UID
+    debug.innerText = "UID: " + user.uid;
+
+    const docRef = doc(db, "users", user.uid);
+    const snap = await getDoc(docRef);
+
+    console.log("UID:", user.uid);
+    console.log("Doc exists:", snap.exists());
+    console.log("Data:", snap.data());
+
+    // 🔥 AUTO FIX (if missing)
+    if (!snap.exists()) {
+
+      let role = "staff";
+      if (email === "admin@gmail.com") {
+        role = "admin";
+      }
+
+      await setDoc(docRef, {
+        email: email,
+        role: role,
+        createdAt: new Date().toISOString()
+      });
+
+      debug.innerText += "\nCreated role: " + role;
+    }
+
+    // 🔄 FETCH AGAIN
+    const newSnap = await getDoc(docRef);
+    const role = newSnap.data().role;
+
+    debug.innerText += "\nRole: " + role;
+
+    // 🔀 REDIRECT
+    if (role === "admin") {
+      window.location = "admin.html";
+    } else {
+      window.location = "report.html";
+    }
+
+  } catch (error) {
+    msg.innerText = error.message;
+    console.error(error);
+  }
+};
+
+</script>
+
+</body>
+</html>

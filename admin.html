@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel | Reports</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .header-card {
+      background: white;
+      border-radius: 28px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+
+    .header-card h1 {
+      color: #2c3e66;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+    }
+
+    .header-card p {
+      color: #6c7a8e;
+      font-size: 0.9rem;
+    }
+
+    .user-info {
+      background: #f1f5f9;
+      border-radius: 16px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .user-email {
+      font-size: 0.85rem;
+      color: #2c3e66;
+      font-weight: 500;
+    }
+
+    .mobile-badge {
+      background: #10b981;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .stat-badge {
+      background: white;
+      border-radius: 20px;
+      padding: 12px 20px;
+      flex: 1;
+      min-width: 150px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .stat-badge .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #6c7a8e;
+    }
+
+    .stat-badge .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #2c3e66;
+    }
+
+    .reports-card {
+      background: white;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+
+    .reports-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #eef2f8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .reports-header h2 {
+      color: #2c3e66;
+      font-size: 1.3rem;
+    }
+
+    .refresh-btn {
+      background: #eef2ff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: #2c3e66;
+    }
+
+    .refresh-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .reports-list {
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .report-item {
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f4fa;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .report-item:hover {
+      background: #f8fafc;
+      transform: translateX(4px);
+    }
+
+    .report-info {
+      flex: 1;
+    }
+
+    .report-title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 1rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .report-badge {
+      background: #e8f4fd;
+      color: #0066cc;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+    }
+
+    .report-meta {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: #6c7a8e;
+    }
+
+    .report-arrow {
+      color: #2c3e66;
+      font-size: 1.2rem;
+      opacity: 0.6;
+    }
+
+    .loading-state, .empty-state {
+      padding: 60px 24px;
+      text-align: center;
+      color: #6c7a8e;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #2c3e66;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .logout-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      background: #b91c1c;
+    }
+
+    .logout-btn.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header-card">
+    <h1>📊 Admin Dashboard</h1>
+    <p>Manage and view all submitted Excel reports</p>
+  </div>
+
+  <div id="userInfoDiv" class="user-info"></div>
+
+  <div class="stats-row">
+    <div class="stat-badge"><div class="label">Total Reports</div><div class="value" id="totalReports">—</div></div>
+    <div class="stat-badge"><div class="label">Total Units</div><div class="value" id="totalUnits">—</div></div>
+    <div class="stat-badge"><div class="label">Total Sales</div><div class="value" id="totalSales">—</div></div>
+  </div>
+
+  <div class="reports-card">
+    <div class="reports-header">
+      <h2>📋 Available Reports</h2>
+      <button class="refresh-btn" onclick="refreshReports()">⟳ Refresh</button>
+    </div>
+    <div id="reportsList" class="reports-list">
+      <div class="loading-state"><div class="loading-spinner"></div><div>Loading reports...</div></div>
+    </div>
+  </div>
+
+  <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">🚪 Logout</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // 🔐 SECRET KEY (Mobile bypass)
+  const SECRET = btoa("pushpa_admin_secure_2026@!");
+  
+  // Get key from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const key = urlParams.get("key");
+  
+  // Global flag for mobile access
+  window.isMobileAccess = (key === SECRET);
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA52MaRGQ2m1iAX21zbdKMvweEqsPoZL3w",
+    authDomain: "pushpa-report.firebaseapp.com",
+    projectId: "pushpa-report",
+    storageBucket: "pushpa-report.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  function getNum(val) {
+    if (val === undefined || val === null || val === "") return 0;
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  function isTotalRow(row) {
+    const hasTotal = Object.values(row).some(v => typeof v === 'string' && v.toLowerCase().includes('total'));
+    if (hasTotal) return true;
+    return false;
+  }
+
+  function calculateTotalSales(excelData) {
+    if (!excelData || !Array.isArray(excelData)) return 0;
+    let total = 0;
+    for (const row of excelData) {
+      if (!isTotalRow(row)) {
+        total += getNum(row.Amount);
+      }
+    }
+    return total;
+  }
+
+  // 🔐 AUTH CHECK with Mobile Bypass
+  onAuthStateChanged(auth, async (user) => {
+    // 🔥 MOBILE BYPASS
+    if (window.isMobileAccess) {
+      document.getElementById("userInfoDiv").innerHTML = `
+        <span class="user-email">📱 Mobile Admin Access</span>
+        <span class="mobile-badge">🔑 Secret Key Mode</span>
+      `;
+      // Hide logout button for mobile access
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) logoutBtn.classList.add("hidden");
+      await loadReports();
+      return;
+    }
+
+    // 🔐 WEB LOGIN REQUIRED
+    if (!user) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    document.getElementById("userInfoDiv").innerHTML = `
+      <span class="user-email">👤 ${user.email || user.phoneNumber || 'Admin'}</span>
+      <span style="font-size:0.7rem;">Web Access</span>
+    `;
+    await loadReports();
+  });
+
+  async function loadReports() {
+    const reportsListDiv = document.getElementById("reportsList");
+    reportsListDiv.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div><div>Loading reports...</div></div>`;
+    
+    try {
+      const q = query(collection(db, "reports"), orderBy("date", "desc"));
+      const snap = await getDocs(q);
+      
+      let reportsArray = [];
+      let totalUnits = 0;
+      let totalSales = 0;
+      
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data();
+        let reportSales = 0;
+        let rowCount = 0;
+        
+        if (data.excelDataJSON && Array.isArray(data.excelDataJSON)) {
+          const validRows = data.excelDataJSON.filter(row => !isTotalRow(row));
+          rowCount = validRows.length;
+          reportSales = calculateTotalSales(validRows);
+          totalSales += reportSales;
+        }
+        
+        totalUnits += getNum(data.unitsConsumed);
+        
+        reportsArray.push({
+          id: docSnap.id,
+          date: data.date || "Unknown",
+          units: data.unitsConsumed || 0,
+          rows: rowCount,
+          sales: reportSales,
+          user: data.userEmail || data.userId || "Unknown",
+          fileName: data.fileName || "Report"
+        });
+      }
+      
+      document.getElementById("totalReports").innerText = reportsArray.length;
+      document.getElementById("totalUnits").innerText = totalUnits.toFixed(2);
+      document.getElementById("totalSales").innerText = totalSales.toFixed(2);
+      
+      if (reportsArray.length === 0) {
+        reportsListDiv.innerHTML = `<div class="empty-state">📭 No reports found</div>`;
+        return;
+      }
+      
+      let html = "";
+      for (const report of reportsArray) {
+        html += `
+          <div class="report-item" onclick="openReport('${report.id}')">
+            <div class="report-info">
+              <div class="report-title">
+                📅 ${escapeHtml(report.date)}
+                <span class="report-badge">${report.rows} rows</span>
+                <span class="report-badge">💰 ₹${report.sales.toFixed(2)}</span>
+              </div>
+              <div class="report-meta">
+                <span>⚡ Units: ${report.units.toFixed(2)}</span>
+                <span>📁 ${escapeHtml(report.fileName)}</span>
+                <span>👤 ${escapeHtml(report.user)}</span>
+              </div>
+            </div>
+            <div class="report-arrow">→</div>
+          </div>
+        `;
+      }
+      reportsListDiv.innerHTML = html;
+      
+    } catch (error) {
+      reportsListDiv.innerHTML = `<div class="empty-state">❌ Error: ${error.message}</div>`;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  // 🔀 Redirect to dashboard with report ID (pass key for mobile)
+  window.openReport = function(id) {
+    const SECRET = btoa("pushpa_admin_secure_2026@!");
+    const urlParams = new URLSearchParams(window.location.search);
+    const key = urlParams.get("key");
+    
+    let url = "dashboard.html?id=" + id;
+    
+    // If mobile access, pass the key to dashboard
+    if (key === SECRET) {
+      url += "&key=" + SECRET;
+    }
+    
+    window.location.href = url;
+  };
+
+  window.refreshReports = function() {
+    loadReports();
+  };
+
+  window.handleLogout = async function() {
+    await signOut(auth);
+    window.location.href = "index.html";
+  };
+</script>
+</body>
+</html>

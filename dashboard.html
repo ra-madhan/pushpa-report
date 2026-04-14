@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Report Dashboard | Firebase Analytics</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Firebase CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #f0f2f5;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      padding: 24px 20px;
+      color: #1e293b;
+    }
+
+    .dashboard-container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .info-card {
+      background: white;
+      border-radius: 28px;
+      padding: 20px 28px;
+      margin-bottom: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      border: 1px solid #e9eef3;
+    }
+
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: baseline;
+    }
+
+    .meta-badge {
+      background: #eef2ff;
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      color: #2c3e66;
+    }
+
+    .meta-badge strong {
+      font-weight: 700;
+    }
+
+    .cards-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 180px;
+      background: white;
+      border-radius: 28px;
+      padding: 20px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      border: 1px solid #eef2f8;
+    }
+
+    .stat-card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      color: #5b6e8c;
+      margin-bottom: 12px;
+    }
+
+    .stat-number {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
+    .stat-sub {
+      font-size: 0.8rem;
+      color: #475569;
+      margin-top: 8px;
+      border-top: 1px dashed #e2e8f0;
+      padding-top: 8px;
+    }
+
+    .button-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+      background: white;
+      padding: 14px 20px;
+      border-radius: 48px;
+      border: 1px solid #eef2f8;
+    }
+
+    .view-btn {
+      background: #f8fafc;
+      border: 1px solid #dce3ec;
+      padding: 8px 20px;
+      border-radius: 40px;
+      font-weight: 500;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: 0.2s;
+      color: #1e2a44;
+    }
+
+    .view-btn:hover {
+      background: #e6edf6;
+      border-color: #b9c4d4;
+      transform: translateY(-1px);
+    }
+
+    .view-btn.active {
+      background: #2c3e66;
+      border-color: #2c3e66;
+      color: white;
+    }
+
+    .charts-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .chart-card {
+      flex: 1;
+      min-width: 280px;
+      background: white;
+      border-radius: 28px;
+      padding: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      border: 1px solid #edf2f7;
+    }
+
+    .chart-card h4 {
+      margin-bottom: 16px;
+      font-size: 1rem;
+      color: #2c3e66;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    canvas {
+      max-height: 280px;
+      width: 100%;
+    }
+
+    .data-section {
+      background: white;
+      border-radius: 28px;
+      padding: 6px 0 12px 0;
+      overflow-x: auto;
+      border: 1px solid #edf2f7;
+    }
+
+    .section-title {
+      padding: 18px 24px 8px 24px;
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #0f2b3d;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 14px 12px;
+      background: #f9fbfe;
+      color: #2c3e66;
+      border-bottom: 2px solid #e2edf7;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    th:hover {
+      background: #eef2ff;
+    }
+
+    th .sort-icon {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 0.7rem;
+      opacity: 0.5;
+    }
+
+    th.sort-asc .sort-icon {
+      opacity: 1;
+      transform: rotate(180deg);
+      display: inline-block;
+    }
+
+    th.sort-desc .sort-icon {
+      opacity: 1;
+    }
+
+    td {
+      padding: 12px 12px;
+      border-bottom: 1px solid #f0f4fa;
+      color: #1f2a44;
+    }
+
+    .profit-positive {
+      color: #15803d;
+      font-weight: 600;
+      background: #e8f7ef;
+      border-radius: 20px;
+      display: inline-block;
+      padding: 2px 8px;
+    }
+
+    .profit-negative {
+      color: #b91c1c;
+      font-weight: 600;
+      background: #fee9e6;
+      border-radius: 20px;
+      display: inline-block;
+      padding: 2px 8px;
+    }
+
+    .list-view {
+      padding: 0 20px 20px 20px;
+    }
+
+    .group-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #edf2f0;
+      padding: 12px 8px;
+      font-size: 0.9rem;
+    }
+
+    .group-name {
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .group-profit {
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .loading-container {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #2c3e66;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      text-align: center;
+      padding: 60px 20px;
+      color: #dc2626;
+      background: white;
+      border-radius: 28px;
+    }
+
+    .sort-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    @media (max-width: 780px) {
+      body {
+        padding: 16px;
+      }
+      .stat-number {
+        font-size: 1.6rem;
+      }
+      .view-btn {
+        padding: 6px 14px;
+        font-size: 0.7rem;
+      }
+      th {
+        padding: 10px 6px;
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <!-- Report Info Card -->
+  <div class="info-card">
+    <div class="report-meta">
+      <span class="meta-badge">📋 Report ID: <strong id="reportIdDisplay">—</strong></span>
+      <span class="meta-badge">📅 Date: <strong id="reportDateDisplay">—</strong></span>
+      <span class="meta-badge">👤 User: <strong id="userEmailDisplay">—</strong></span>
+      <span class="meta-badge">📊 Rows: <strong id="totalRowsDisplay">0</strong></span>
+    </div>
+    <div style="font-size: 0.7rem; color:#5f7f9e;">Data from Firebase Firestore | Excel → JSON stored</div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="cards-row">
+    <div class="stat-card"><h3>💰 Total Sales</h3><div class="stat-number" id="totalSales">0.00</div><div class="stat-sub">Amount sum</div></div>
+    <div class="stat-card"><h3>📈 Total Profit</h3><div class="stat-number" id="totalProfit">0.00</div><div class="stat-sub">Margin Amount sum</div></div>
+    <div class="stat-card"><h3>🏆 Top Salesman</h3><div class="stat-number" id="topSalesman">—</div><div class="stat-sub" id="topProfitVal">Profit: 0.00</div></div>
+  </div>
+
+  <!-- Dynamic Charts Row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <h4 id="barChartTitle">📊 Top 5 by Profit</h4>
+      <canvas id="barChart" width="400" height="250" style="max-height:250px"></canvas>
+    </div>
+    <div class="chart-card">
+      <h4 id="pieChartTitle">🥧 Profit Distribution (All Items)</h4>
+      <canvas id="pieChart" width="400" height="250" style="max-height:250px"></canvas>
+    </div>
+  </div>
+
+  <!-- Interactive Buttons -->
+  <div class="button-bar">
+    <button class="view-btn" data-view="raw">📋 Raw Data</button>
+    <button class="view-btn" data-view="daily">📅 Daily Profit</button>
+    <button class="view-btn" data-view="category">📂 Category Profit</button>
+    <button class="view-btn" data-view="vendor">🏢 Vendor Profit</button>
+    <button class="view-btn" data-view="bill">🧾 Profit per Bill</button>
+    <button class="view-btn" data-view="salesman">👤 Salesman Performance</button>
+    <button class="view-btn" data-view="topItems">⭐ Top Items by Profit</button>
+  </div>
+
+  <!-- dynamic content -->
+  <div class="data-section" id="dataDisplay">
+    <div class="section-title">
+      <span>📊 Data Insights</span>
+      <span style="font-size:0.7rem;" id="recordCount"></span>
+    </div>
+    <div id="dynamicContent">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div>Loading report...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyA52MaRGQ2m1iAX21zbdKMvweEqsPoZL3w",
+    authDomain: "pushpa-report.firebaseapp.com",
+    projectId: "pushpa-report",
+    storageBucket: "pushpa-report.firebasestorage.app",
+    messagingSenderId: "209660404105",
+    appId: "1:209660404105:web:74fa46b3f860c3ec508158"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // ---------- Helper Functions ----------
+  function getNum(val) {
+    if (val === undefined || val === null || val === "") return 0;
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  function safeStr(val, defaultValue = "Unknown") {
+    if (val === undefined || val === null) return defaultValue;
+    const str = String(val).trim();
+    return str === "" ? defaultValue : str;
+  }
+
+  // Detect and filter out summary/total rows
+  function isTotalRow(row) {
+    const hasTotalText = Object.values(row).some(v => 
+      typeof v === 'string' && v.toLowerCase().includes('total')
+    );
+    if (hasTotalText) return true;
+    const criticalFields = ['BillNo', 'ItemName', 'Amount'];
+    let hasData = criticalFields.some(f => {
+      let val = row[f];
+      return val !== undefined && val !== null && String(val).trim() !== "" && !String(val).toLowerCase().includes('total');
+    });
+    return !hasData;
+  }
+
+  let rawData = [];
+  let sortedData = [];
+  let currentView = "raw";
+  let barChartInstance = null;
+  let pieChartInstance = null;
+  
+  // Sorting state
+  let sortColumn = null;
+  let sortDirection = 'asc'; // 'asc' or 'desc'
+
+  // DOM elements
+  const reportIdDisplay = document.getElementById("reportIdDisplay");
+  const reportDateDisplay = document.getElementById("reportDateDisplay");
+  const userEmailDisplay = document.getElementById("userEmailDisplay");
+  const totalRowsDisplay = document.getElementById("totalRowsDisplay");
+  const totalSalesSpan = document.getElementById("totalSales");
+  const totalProfitSpan = document.getElementById("totalProfit");
+  const topSalesmanSpan = document.getElementById("topSalesman");
+  const topProfitValSpan = document.getElementById("topProfitVal");
+  const dynamicDiv = document.getElementById("dynamicContent");
+  const recordCountSpan = document.getElementById("recordCount");
+  const barChartTitle = document.getElementById("barChartTitle");
+  const pieChartTitle = document.getElementById("pieChartTitle");
+
+  // Sorting function
+  function sortData(column, direction) {
+    sortedData = [...rawData];
+    sortedData.sort((a, b) => {
+      let valA, valB;
+      
+      switch(column) {
+        case 'date':
+          valA = a.Trans_Date;
+          valB = b.Trans_Date;
+          break;
+        case 'billNo':
+          valA = a.BillNo;
+          valB = b.BillNo;
+          break;
+        case 'itemName':
+          valA = a.ItemName;
+          valB = b.ItemName;
+          break;
+        case 'category':
+          valA = a.Category;
+          valB = b.Category;
+          break;
+        case 'dealer':
+          valA = a.Dealer;
+          valB = b.Dealer;
+          break;
+        case 'loginName':
+          valA = a.LoginName;
+          valB = b.LoginName;
+          break;
+        case 'amount':
+          valA = a.Amount;
+          valB = b.Amount;
+          break;
+        case 'profit':
+          valA = a.MarginAmount;
+          valB = b.MarginAmount;
+          break;
+        default:
+          return 0;
+      }
+      
+      // Handle numeric vs string comparison
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return direction === 'asc' ? valA - valB : valB - valA;
+      }
+      
+      // String comparison
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      if (direction === 'asc') {
+        return strA.localeCompare(strB);
+      } else {
+        return strB.localeCompare(strA);
+      }
+    });
+  }
+
+  // Grouping functions
+  function groupByProfit(keyGetter) {
+    const groupMap = new Map();
+    for (const row of rawData) {
+      let key = keyGetter(row);
+      if (key === undefined || key === null || key === "") key = "Unknown";
+      const profit = row.MarginAmount;
+      groupMap.set(key, (groupMap.get(key) || 0) + profit);
+    }
+    const result = Array.from(groupMap.entries()).map(([key, profit]) => ({ key, profit }));
+    result.sort((a, b) => b.profit - a.profit);
+    return result;
+  }
+
+  function getTopItemsByProfit() {
+    const itemMap = new Map();
+    for (const row of rawData) {
+      let item = row.ItemName;
+      if (!item || item === "Unknown") item = "Unknown Item";
+      itemMap.set(item, (itemMap.get(item) || 0) + row.MarginAmount);
+    }
+    const items = Array.from(itemMap.entries()).map(([name, profit]) => ({ key: name, profit }));
+    items.sort((a, b) => b.profit - a.profit);
+    return items;
+  }
+
+  function updateKPI() {
+    let totalSales = 0, totalProfit = 0;
+    const salesmanMap = new Map();
+    for (const row of rawData) {
+      totalSales += row.Amount;
+      totalProfit += row.MarginAmount;
+      salesmanMap.set(row.LoginName, (salesmanMap.get(row.LoginName) || 0) + row.MarginAmount);
+    }
+    totalSalesSpan.innerText = totalSales.toFixed(2);
+    totalProfitSpan.innerText = totalProfit.toFixed(2);
+    let topName = "—";
+    let topProfit = -Infinity;
+    for (let [name, profit] of salesmanMap.entries()) {
+      if (profit > topProfit) {
+        topProfit = profit;
+        topName = name;
+      }
+    }
+    if (topProfit === -Infinity || rawData.length === 0) {
+      topSalesmanSpan.innerText = "—";
+      topProfitValSpan.innerText = "Profit: 0.00";
+    } else {
+      topSalesmanSpan.innerText = topName;
+      topProfitValSpan.innerText = `Profit: ${topProfit.toFixed(2)}`;
+    }
+  }
+
+  function getGroupedDataForCurrentView() {
+    switch (currentView) {
+      case "daily": return groupByProfit(row => row.Trans_Date);
+      case "category": return groupByProfit(row => row.Category);
+      case "vendor": return groupByProfit(row => row.Dealer);
+      case "bill": return groupByProfit(row => row.BillNo);
+      case "salesman": return groupByProfit(row => row.LoginName);
+      case "topItems": return getTopItemsByProfit();
+      default: return groupByProfit(row => row.Category);
+    }
+  }
+
+  function getChartTitlePrefix() {
+    switch (currentView) {
+      case "daily": return "Daily";
+      case "category": return "Category";
+      case "vendor": return "Vendor";
+      case "bill": return "Bill No";
+      case "salesman": return "Salesman";
+      case "topItems": return "Top Items";
+      default: return "Category";
+    }
+  }
+
+  function generateColors(count) {
+    const baseColors = ['#2c3e66', '#3498db', '#e67e22', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c', '#e84393', '#f39c12', '#27ae60', '#2980b9', '#8e44ad', '#d35400', '#c0392b', '#16a085', '#34495e'];
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+      colors.push(baseColors[i % baseColors.length]);
+    }
+    return colors;
+  }
+
+  function updateDynamicCharts() {
+    if (!rawData.length) {
+      if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+      if (pieChartInstance) { pieChartInstance.destroy(); pieChartInstance = null; }
+      barChartTitle.innerText = "📊 Top 5 by Profit";
+      pieChartTitle.innerText = "🥧 Profit Distribution (All Items)";
+      return;
+    }
+
+    const groupedData = getGroupedDataForCurrentView();
+    const prefix = getChartTitlePrefix();
+    barChartTitle.innerText = `📊 Top 5 ${prefix} by Profit`;
+    pieChartTitle.innerText = `🥧 ${prefix} Profit Distribution (All ${groupedData.length} Items)`;
+
+    const top5 = groupedData.slice(0, 5);
+    const barLabels = top5.map(item => item.key.length > 22 ? item.key.slice(0, 20) + '..' : item.key);
+    const barProfits = top5.map(item => item.profit);
+
+    const ctxBar = document.getElementById('barChart').getContext('2d');
+    if (barChartInstance) barChartInstance.destroy();
+    barChartInstance = new Chart(ctxBar, {
+      type: 'bar',
+      data: { labels: barLabels, datasets: [{ label: 'Profit (₹)', data: barProfits, backgroundColor: '#2c3e66', borderRadius: 8 }] },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+
+    const allItems = groupedData;
+    let pieLabels = allItems.map(item => item.key.length > 25 ? item.key.slice(0, 22) + '..' : item.key);
+    let pieValues = allItems.map(item => item.profit);
+
+    const ctxPie = document.getElementById('pieChart').getContext('2d');
+    if (pieChartInstance) pieChartInstance.destroy();
+
+    const pieColors = generateColors(pieLabels.length);
+    pieChartInstance = new Chart(ctxPie, {
+      type: 'pie',
+      data: { labels: pieLabels, datasets: [{ data: pieValues, backgroundColor: pieColors, borderWidth: 1, borderColor: '#fff' }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 9 }, boxWidth: 10 } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.raw;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
+              }
+            }
+          }
+        },
+        layout: { padding: 5 }
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  // Render raw data with sorting support
+  function renderRawData() {
+    if (!rawData.length) return `<div style="padding: 32px; text-align:center;">No transaction data</div>`;
+    
+    // Use sorted data if sort column exists, otherwise use raw data
+    const dataToRender = sortColumn ? sortedData : rawData;
+    
+    let html = `<div style="overflow-x: auto;"><table style="min-width: 700px;"><thead><tr>`;
+    
+    // Table headers with sort icons
+    const columns = [
+      { key: 'date', label: 'Date', sortable: true },
+      { key: 'billNo', label: 'BillNo', sortable: true },
+      { key: 'itemName', label: 'ItemName', sortable: true },
+      { key: 'category', label: 'Category', sortable: true },
+      { key: 'dealer', label: 'Dealer', sortable: true },
+      { key: 'loginName', label: 'LoginName', sortable: true },
+      { key: 'amount', label: 'Amount', sortable: true },
+      { key: 'profit', label: 'Profit', sortable: true }
+    ];
+    
+    columns.forEach(col => {
+      const isActive = sortColumn === col.key;
+      const sortClass = isActive ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+      html += `<th class="${sortClass}" onclick="handleSort('${col.key}')">
+        ${col.label}
+        <span class="sort-icon">${isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </th>`;
+    });
+    
+    html += `</tr></thead><tbody>`;
+    
+    for (const row of dataToRender) {
+      const profitClass = row.MarginAmount >= 0 ? "profit-positive" : "profit-negative";
+      html += `<tr>
+        <td>${escapeHtml(row.Trans_Date)}</td>
+        <td>${escapeHtml(row.BillNo)}</td>
+        <td>${escapeHtml(row.ItemName)}</td>
+        <td>${escapeHtml(row.Category)}</td>
+        <td>${escapeHtml(row.Dealer)}</td>
+        <td>${escapeHtml(row.LoginName)}</td>
+        <td>${row.Amount.toFixed(2)}</td>
+        <td><span class="${profitClass}">${row.MarginAmount.toFixed(2)}</span></td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+    return html;
+  }
+
+  function renderGroupedList(groupedArray, title) {
+    if (!groupedArray.length) return `<div style="padding: 24px;">✨ No data for ${title}</div>`;
+    let html = `<div class="list-view"><div style="margin-bottom: 12px; font-weight:500;">📊 ${title} (sorted by profit descending)</div>`;
+    for (const item of groupedArray) {
+      const profitClass = item.profit >= 0 ? "profit-positive" : "profit-negative";
+      html += `<div class="group-item">
+        <span class="group-name">${escapeHtml(item.key)}</span>
+        <span class="group-profit ${profitClass}">Profit: ${item.profit.toFixed(2)}</span>
+      </div>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  function updateDashboardUI() {
+    updateKPI();
+    updateDynamicCharts();
+    recordCountSpan.innerText = `${rawData.length} transactions`;
+
+    if (!rawData.length) {
+      dynamicDiv.innerHTML = `<div style="padding: 40px; text-align: center;">📁 No transaction data found in this report</div>`;
+      return;
+    }
+
+    if (currentView === "raw") {
+      dynamicDiv.innerHTML = renderRawData();
+    } else if (currentView === "daily") {
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Trans_Date), "Daily Profit");
+    } else if (currentView === "category") {
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Category), "Profit by Category");
+    } else if (currentView === "vendor") {
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.Dealer), "Vendor (Dealer) Profit");
+    } else if (currentView === "bill") {
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.BillNo), "Profit per Bill Number");
+    } else if (currentView === "salesman") {
+      dynamicDiv.innerHTML = renderGroupedList(groupByProfit(row => row.LoginName), "Salesman Performance");
+    } else if (currentView === "topItems") {
+      dynamicDiv.innerHTML = renderGroupedList(getTopItemsByProfit(), "Top Items by Profit");
+    } else {
+      dynamicDiv.innerHTML = renderRawData();
+    }
+  }
+
+  // Sorting handler (exposed to global scope for onclick)
+  window.handleSort = function(column) {
+    if (sortColumn === column) {
+      // Toggle direction
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column, default to ascending
+      sortColumn = column;
+      sortDirection = 'asc';
+    }
+    
+    // Apply sorting
+    sortData(sortColumn, sortDirection);
+    updateDashboardUI();
+  };
+
+  // ---------- Firebase: Fetch report by ID from URL ----------
+  async function loadReportFromFirebase() {
+    // Get ID from URL - FIXED to work correctly
+    const urlParams = new URLSearchParams(window.location.search);
+    const reportId = urlParams.get("id");
+    
+    console.log("Report ID from URL:", reportId); // Debug log
+
+    if (!reportId) {
+      dynamicDiv.innerHTML = `<div class="error-message">❌ No report ID found in URL. Please use ?id=YOUR_REPORT_ID<br><br>Current URL: ${window.location.href}</div>`;
+      return;
+    }
+
+    reportIdDisplay.innerText = reportId;
+
+    try {
+      const docRef = db.collection("reports").doc(reportId);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        dynamicDiv.innerHTML = `<div class="error-message">❌ No report found with ID: ${reportId}</div>`;
+        return;
+      }
+
+      const reportData = docSnap.data();
+      
+      // Display meta info
+      reportDateDisplay.innerText = reportData.date || "—";
+      userEmailDisplay.innerText = reportData.userEmail || reportData.userId || "—";
+      
+      // Get the JSON data from Firestore
+      let excelData = reportData.excelDataJSON || reportData.data || [];
+      
+      if (!Array.isArray(excelData) || excelData.length === 0) {
+        dynamicDiv.innerHTML = `<div class="error-message">⚠️ No transaction data found in this report</div>`;
+        return;
+      }
+      
+      // Filter out total rows
+      const validRows = excelData.filter(row => !isTotalRow(row));
+      totalRowsDisplay.innerText = validRows.length;
+      
+      // Map to our data format
+      rawData = validRows.map(row => ({
+        Trans_Type: safeStr(row.Trans_Type),
+        BillNo: safeStr(row.BillNo),
+        Trans_Date: safeStr(row.Trans_Date, "Unknown Date"),
+        Customer: safeStr(row.Customer),
+        ItemCode: safeStr(row.ItemCode),
+        Category: safeStr(row.Category),
+        ItemName: safeStr(row.ItemName),
+        Dealer: safeStr(row.Dealer),
+        Amount: getNum(row.Amount),
+        TotalCost: getNum(row["Total Cost"] || row.TotalCost),
+        MarginAmount: getNum(row["Margin Amount"] || row.MarginAmount),
+        LoginName: safeStr(row.LoginName)
+      }));
+      
+      // Reset sorting
+      sortColumn = null;
+      sortDirection = 'asc';
+      sortedData = [...rawData];
+      
+      // Update the dashboard
+      updateDashboardUI();
+      
+    } catch (error) {
+      console.error("Firebase error:", error);
+      dynamicDiv.innerHTML = `<div class="error-message">❌ Error loading report: ${error.message}</div>`;
+    }
+  }
+
+  // Button initialization
+  function initButtons() {
+    const btns = document.querySelectorAll(".view-btn");
+    btns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const view = btn.getAttribute("data-view");
+        currentView = view;
+        btns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        if (rawData.length) {
+          updateDashboardUI();
+        }
+      });
+    });
+    document.querySelector('.view-btn[data-view="raw"]')?.classList.add("active");
+  }
+
+  // Initialize
+  initButtons();
+  loadReportFromFirebase();
+</script>
+</body>
+</html>
